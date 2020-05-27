@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: acrterjesappservicereg.azurecr.io
+        username: ${{ secrets.acr_acrterjesappservicereg_username }}
+        password: ${{ secrets.acr_acrterjesappservicereg_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/db" -f  "db/Dockerfile" -t acrterjesappservicereg.azurecr.io/aksterjephippy:${{ github.sha }}
+        docker push acrterjesappservicereg.azurecr.io/aksterjephippy:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_aksterjephippy_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep aksterjephippy90af | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace aksterjephippy90af`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: aksterjephippy90af
+        container-registry-url: acrterjesappservicereg.azurecr.io
+        container-registry-username: ${{ secrets.acr_acrterjesappservicereg_username }}
+        container-registry-password: ${{ secrets.acr_acrterjesappservicereg_password }}
+        secret-name: aksterjephipdockerauth
+       
+    - uses: azure/k8s-deploy@v1
+      with:
+        namespace: aksterjephippy90af
+        manifests: |
+          manifests/deployment.yml
+          manifests/service.yml
+        images: |
+          acrterjesappservicereg.azurecr.io/aksterjephippy:${{ github.sha }}
+        imagepullsecrets: |
+          aksterjephipdockerauth
