@@ -1,0 +1,16 @@
+apiVersion : apps/v1beta1
+kind: Deployment
+metadata:
+  name: "aksterjephippy"
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: "aksterjephippy"
+    spec:
+      containers:
+        - name: "aksterjephippy"
+          image: "acrterjesappservicereg.azurecr.io/aksterjephippy"
+          ports:
+          - containerPort: 80
